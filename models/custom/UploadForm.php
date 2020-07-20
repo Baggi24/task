@@ -53,7 +53,7 @@ class UploadForm extends Model {
 		return $result;
 	}
 
-	public function getProducts( $storeId, $upc){
+	public function getUpc( $storeId, $upc){
 		$product =  StoredProduct::find()
 		                    ->select('upc')
 		                    ->innerJoin('store', 'store.id = stored_product.store_id')
@@ -61,7 +61,9 @@ class UploadForm extends Model {
 							->andWhere(['store.id' => $storeId])
 		                    ->one();
 
-		return $product;
+		$upc = $product['upc'];
+
+		return $upc;
 	}
 
 //	public function insertCsvToDb(){

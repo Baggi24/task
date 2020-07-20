@@ -24,83 +24,68 @@ class UploadController extends Controller {
 //				echo 'file is uploaded successfully';
 
 				$cvsFiles = $model['csvFiles'];
-
+//				print_r($cvsFiles);exit;
 				foreach ($cvsFiles as $cvs_file){
 
+					$row = 1;
+					if (($handle = fopen("../uploads/{$cvs_file->name}", "r")) !== FALSE) {
 
-//					$csvFile = file("../uploads/{$cvs_file->name}");
-//					$data = [];
-//					foreach ($csvFile as $line) {
-//						$data[] = str_getcsv($line);
-//					}
-//echo '<pre>';
-//					print_r($data);exit;
+						$head = fgetcsv($handle, 1000, ',');
 
+						$upcKey = array_search('upc', $head);
+						$titleKey = array_search('title', $head);
+						$priceKey = array_search('price', $head);
 
-//$array = [];
-				$row = 1;
-				if (($handle = fopen("../uploads/{$cvs_file->name}", "r")) !== FALSE) {
-
-					while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-						$num = count($data);
-
-						if(!in_array('upc', $data)){
-							new Exception('upc is required');
-						}
-						$upcKey = array_search('upc', $data);
-						$title = array_search('title', $data);
-						$price = array_search('price', $data);
-
-//						$upc = '';
-//						if($data[$upcKey] !== 'upc'){
-//							$upc = $data[$upcKey];
-//						}
-
-						$array[] = $data[$upcKey];
-
-						$row++;
-						for ($c=0; $c < $num; $c++) {
-
-//						print_r($data[$upcKey]);exit;
-							$upc = '';
-							if($data[$c] !== 'upc' && $upcKey === $c){
-								echo $upc = $data[$upcKey];
+						while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+							if(!is_numeric($upcKey)){
+								throw new Exception("upc is required");
 							}
-//							echo $data[$upcKey] . "<br />\n";
+							$upc = $data[$upcKey];
+							$title = null;
+							if(is_numeric($titleKey)){
+								$title = $data[$titleKey];
+							}
+							$price = null;
+							if(is_numeric($priceKey)){
+								$price = $data[$priceKey];
+							}
 
-//							$test = $model->getProducts($selectedStore, $ups);
+							$upcInStore = $model->getUpc($selectedStore, $upc);
 
-							$rows[] = [
-								'store_id' => $selectedStore,
-								'upc' => $data[$upcKey],
-								'title' => (isset($title)) ? $title : null,
-								'price' => (isset($price)) ? $price : null,
-							];
+							if(!isset($upcInStore)){
 
+								$rows[] = [
+									'store_id' => $selectedStore,
+									'upc' => $upc,
+									'title' => $title,
+									'price' => $price,
+								];
 
-//							\Yii::$app->db->createCommand()
-//							              ->batchInsert('stored_product',
-//								              ['store_id', 'upc', 'title', 'price'],
-//								              $rows
-//							              )
-//							              ->execute();
+								\Yii::$app->db->createCommand()
+								              ->batchInsert('stored_product',
+									              ['store_id', 'upc', 'title', 'price'],
+									              $rows
+								              )
+								              ->execute();
+								$rows = [];
+							}
+							else{
+								\Yii::$app->db->createCommand()
+								              ->update('stored_product',
+									              [ 'title'=>$title, 'price'=>$price ],
+									              [ 'upc'=> $upcInStore ])
+								              ->execute();
+							}
 
-
+							$row++;
 
 						}
+
+						fclose($handle);
+
 					}
-					fclose($handle);
-
-//					print_r($array);exit;
-				}
 
 				}
-
-
-
-
-
-
 
 				return;
 			}
