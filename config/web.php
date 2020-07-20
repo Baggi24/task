@@ -49,7 +49,8 @@ $config = [
             'showScriptName' => false,
             'rules' => [
 	            'images' => 'images/view',
-	            'upload' => 'upload/index'
+	            'upload' => 'upload/index',
+	            'list' => 'upload/list'
             ],
         ],
 

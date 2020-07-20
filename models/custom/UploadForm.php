@@ -1,6 +1,7 @@
 <?php
 namespace app\models\custom;
 
+use app\models\ImportInfo;
 use app\models\Store;
 use app\models\StoredProduct;
 use yii\base\Model;
@@ -66,21 +67,18 @@ class UploadForm extends Model {
 		return $upc;
 	}
 
-//	public function insertCsvToDb(){
-//		$rows[] = [
-//			'store_id' => $store_id,
-//			'upc' => $upc,
-//			'title' => (isset($title)) ? $title : null,
-//			'price' => (isset($price)) ? $price : null,
-//		];
-//
-//
-//			\Yii::$app->db->createCommand()
-//			              ->batchInsert('stored_product',
-//				              ['store_id', 'upc', 'title', 'price'],
-//				              $rows
-//			              )
-//			              ->execute();
-//
-//	}
+	public function getStoreById($id){
+		$store = Store::find()->select('title')->where(['id' => $id])->one();
+		$title = $store['title'];
+		return $title;
+	}
+
+	public function getImportInfo(){
+		$info = ImportInfo::find()
+                            ->select('id, file_name, store, success, fail')
+                            ->asArray()
+                            ->all();
+		return $info;
+	}
+
 }

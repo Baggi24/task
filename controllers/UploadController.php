@@ -21,13 +21,11 @@ class UploadController extends Controller {
 			$selectedStore = $request->post('store');
 			$model->csvFiles = UploadedFile::getInstances($model, 'csvFiles');
 			if ($model->upload()) {
-//				echo 'file is uploaded successfully';
 
 				$cvsFiles = $model['csvFiles'];
-//				print_r($cvsFiles);exit;
+				$success = 0;
+				$fail = 0;
 				foreach ($cvsFiles as $cvs_file){
-
-					$row = 1;
 					if (($handle = fopen("../uploads/{$cvs_file->name}", "r")) !== FALSE) {
 
 						$head = fgetcsv($handle, 1000, ',');
@@ -36,62 +34,92 @@ class UploadController extends Controller {
 						$titleKey = array_search('title', $head);
 						$priceKey = array_search('price', $head);
 
-						while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-							if(!is_numeric($upcKey)){
-								throw new Exception("upc is required");
+							try{
+
+								while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+									if(!is_numeric($upcKey)){
+										throw new Exception("upc is required");
+									}
+									$upc = $data[$upcKey];
+									$title = null;
+									if(is_numeric($titleKey)){
+										$title = $data[$titleKey];
+									}
+									$price = null;
+									if(is_numeric($priceKey)){
+										$price = $data[$priceKey];
+									}
+
+									$upcInStore = $model->getUpc($selectedStore, $upc);
+
+									if(!isset($upcInStore)){
+
+										$rows[] = [
+											'store_id' => $selectedStore,
+											'upc' => $upc,
+											'title' => $title,
+											'price' => $price,
+										];
+
+										\Yii::$app->db->createCommand()
+										              ->batchInsert('stored_product',
+											              ['store_id', 'upc', 'title', 'price'],
+											              $rows
+										              )
+										              ->execute();
+										$rows = [];
+									}
+									else{
+										\Yii::$app->db->createCommand()
+										              ->update('stored_product',
+											              [ 'title'=>$title, 'price'=>$price ],
+											              [ 'upc'=> $upcInStore ])
+										              ->execute();
+									}
+
+									$success++;
+
+								}
+
+								fclose($handle);
 							}
-							$upc = $data[$upcKey];
-							$title = null;
-							if(is_numeric($titleKey)){
-								$title = $data[$titleKey];
-							}
-							$price = null;
-							if(is_numeric($priceKey)){
-								$price = $data[$priceKey];
+							catch(Exception $e){
+								$fail++;
 							}
 
-							$upcInStore = $model->getUpc($selectedStore, $upc);
 
-							if(!isset($upcInStore)){
+						$file_name = $cvs_file->name;
+						$store_name = $model->getStoreById($selectedStore);
 
-								$rows[] = [
-									'store_id' => $selectedStore,
-									'upc' => $upc,
-									'title' => $title,
-									'price' => $price,
-								];
+						$info_rows[] = [
+							'file_name' => $file_name,
+							'store' => $store_name,
+							'success' => $success,
+							'fail' => $fail,
+						];
 
-								\Yii::$app->db->createCommand()
-								              ->batchInsert('stored_product',
-									              ['store_id', 'upc', 'title', 'price'],
-									              $rows
-								              )
-								              ->execute();
-								$rows = [];
-							}
-							else{
-								\Yii::$app->db->createCommand()
-								              ->update('stored_product',
-									              [ 'title'=>$title, 'price'=>$price ],
-									              [ 'upc'=> $upcInStore ])
-								              ->execute();
-							}
-
-							$row++;
-
-						}
-
-						fclose($handle);
-
+						\Yii::$app->db->createCommand()
+						              ->batchInsert('import_info',
+							              ['file_name', 'store', 'success', 'fail'],
+							              $info_rows
+						              )
+						              ->execute();
+						$info_rows = [];
 					}
-
 				}
-
-				return;
+//				return;
+				\Yii::$app->response->redirect(['list']);
 			}
 		}
 
 		return $this->render('index', ['model' => $model, 'store' => $store]);
+	}
+
+	public function actionList(){
+		$file = new UploadForm();
+		$list = $file->getImportInfo();
+		return $this->render('list', compact('list'));
+
 	}
 
 }
